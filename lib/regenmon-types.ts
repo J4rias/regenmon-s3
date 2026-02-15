@@ -59,9 +59,18 @@ export const SPRITE_MAP: Record<ArchetypeId, Record<EvolutionStage, { happy: str
     },
   },
   'Prism-Core': {
-    baby: { happy: '', sad: '' },
-    adult: { happy: '', sad: '' },
-    full: { happy: '', sad: '' },
+    baby: {
+      happy: '/images/prism-core-baby-happy.png',
+      sad: '/images/prism-core-baby-sad.png',
+    },
+    adult: {
+      happy: '/images/prism-core-adult-happy.png',
+      sad: '/images/prism-core-adult-sad.png',
+    },
+    full: {
+      happy: '/images/prism-core-full-happy.png',
+      sad: '/images/prism-core-full-sad.png',
+    },
   },
 }
 
