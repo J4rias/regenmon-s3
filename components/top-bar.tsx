@@ -1,6 +1,6 @@
 'use client'
 
-import { Sun, Moon, Globe } from 'lucide-react'
+import { Sun, Moon } from 'lucide-react'
 import type { Locale } from '@/lib/i18n'
 import { t } from '@/lib/i18n'
 
@@ -28,12 +28,11 @@ export function TopBar({ isDark, locale, onToggleTheme, onToggleLang }: TopBarPr
         <button
           type="button"
           onClick={onToggleLang}
-          className="nes-btn flex items-center gap-2"
-          style={{ fontSize: '10px', padding: '4px 10px' }}
+          className="nes-btn"
+          style={{ fontSize: '10px', padding: '4px 12px' }}
           aria-label={locale === 'en' ? 'Cambiar a Espanol' : 'Switch to English'}
         >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">{locale === 'en' ? 'ES' : 'EN'}</span>
+          {locale === 'en' ? 'ES' : 'EN'}
         </button>
 
         {/* Theme toggle */}

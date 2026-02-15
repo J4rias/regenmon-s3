@@ -44,6 +44,7 @@ function formatTime(ms: number): string {
 export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [now, setNow] = useState(Date.now())
+  const [poppedStat, setPoppedStat] = useState<string | null>(null)
   const archetype = ARCHETYPES.find((a) => a.id === data.type)!
   const s = t(locale)
 
@@ -71,6 +72,8 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
       const newStats = { ...data.stats }
       newStats[stat] = Math.min(100, Math.max(0, newStats[stat] + amount))
       onUpdate({ ...data, stats: newStats })
+      setPoppedStat(stat)
+      setTimeout(() => setPoppedStat(null), 400)
     },
     [data, onUpdate]
   )
@@ -206,7 +209,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
         <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
-            className="nes-btn is-success"
+            className="nes-btn is-success hover-lift btn-press"
             onClick={() => addStat('hunger', 15)}
             style={{ fontSize: '11px', padding: '6px 16px' }}
           >
@@ -214,7 +217,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
           </button>
           <button
             type="button"
-            className="nes-btn is-primary"
+            className="nes-btn is-primary hover-lift btn-press"
             onClick={() => addStat('happiness', 15)}
             style={{ fontSize: '11px', padding: '6px 16px' }}
           >
@@ -222,7 +225,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
           </button>
           <button
             type="button"
-            className="nes-btn is-warning"
+            className="nes-btn is-warning hover-lift btn-press"
             onClick={() => addStat('energy', 15)}
             style={{ fontSize: '11px', padding: '6px 16px' }}
           >
@@ -248,27 +251,27 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
           <div>
             <label className="mb-2 flex items-center justify-between text-xs leading-relaxed sm:text-sm" style={{ color: 'var(--foreground)' }}>
               <span>{s.happiness}</span>
-              <span style={{ color: 'var(--muted-foreground)' }}>{data.stats.happiness}/100</span>
+              <span className={`transition-all duration-300 ${poppedStat === 'happiness' ? 'animate-stat-pop' : ''}`} style={{ color: poppedStat === 'happiness' ? '#76c442' : 'var(--muted-foreground)' }}>{data.stats.happiness}/100</span>
             </label>
-            <progress className="nes-progress is-success" value={data.stats.happiness} max={100} />
+            <progress className="nes-progress is-success" value={data.stats.happiness} max={100} style={{ transition: 'width 0.3s ease' }} />
           </div>
 
           {/* Energy */}
           <div>
             <label className="mb-2 flex items-center justify-between text-xs leading-relaxed sm:text-sm" style={{ color: 'var(--foreground)' }}>
               <span>{s.energy}</span>
-              <span style={{ color: 'var(--muted-foreground)' }}>{data.stats.energy}/100</span>
+              <span className={`transition-all duration-300 ${poppedStat === 'energy' ? 'animate-stat-pop' : ''}`} style={{ color: poppedStat === 'energy' ? '#d4a85c' : 'var(--muted-foreground)' }}>{data.stats.energy}/100</span>
             </label>
-            <progress className="nes-progress is-warning" value={data.stats.energy} max={100} />
+            <progress className="nes-progress is-warning" value={data.stats.energy} max={100} style={{ transition: 'width 0.3s ease' }} />
           </div>
 
           {/* Satiety */}
           <div>
             <label className="mb-2 flex items-center justify-between text-xs leading-relaxed sm:text-sm" style={{ color: 'var(--foreground)' }}>
               <span>{s.hunger}</span>
-              <span style={{ color: 'var(--muted-foreground)' }}>{data.stats.hunger}/100</span>
+              <span className={`transition-all duration-300 ${poppedStat === 'hunger' ? 'animate-stat-pop' : ''}`} style={{ color: poppedStat === 'hunger' ? '#cd5c5c' : 'var(--muted-foreground)' }}>{data.stats.hunger}/100</span>
             </label>
-            <progress className="nes-progress is-error" value={data.stats.hunger} max={100} />
+            <progress className="nes-progress is-error" value={data.stats.hunger} max={100} style={{ transition: 'width 0.3s ease' }} />
           </div>
         </div>
       </div>
