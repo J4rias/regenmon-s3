@@ -66,6 +66,11 @@ export default function Home() {
     setRegenmon(data)
   }
 
+  function handleUpdate(data: RegenmonData) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    setRegenmon(data)
+  }
+
   function handleReset() {
     localStorage.removeItem(STORAGE_KEY)
     setRegenmon(null)
@@ -97,7 +102,7 @@ export default function Home() {
       />
       <main>
         {regenmon ? (
-          <Dashboard locale={locale} data={regenmon} onReset={handleReset} />
+          <Dashboard locale={locale} data={regenmon} onUpdate={handleUpdate} onReset={handleReset} />
         ) : (
           <Incubator locale={locale} onHatch={handleHatch} />
         )}

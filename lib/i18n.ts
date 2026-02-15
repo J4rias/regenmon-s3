@@ -36,6 +36,17 @@ const strings = {
     // Theme
     lightTheme: 'Switch to light theme',
     darkTheme: 'Switch to dark theme',
+    // Evolution
+    evolutionLabel: 'Evolution',
+    stageBaby: 'Baby',
+    stageAdult: 'Adult',
+    stageFull: 'Full',
+    nextEvolution: 'Next evolution in',
+    maxEvolution: 'Max evolution reached!',
+    // Actions
+    feedButton: 'Feed',
+    playButton: 'Play',
+    restButton: 'Rest',
   },
   es: {
     title: 'Regenmon',
@@ -70,6 +81,17 @@ const strings = {
     // Theme
     lightTheme: 'Cambiar a tema claro',
     darkTheme: 'Cambiar a tema oscuro',
+    // Evolution
+    evolutionLabel: 'Evolucion',
+    stageBaby: 'Bebe',
+    stageAdult: 'Adulto',
+    stageFull: 'Completo',
+    nextEvolution: 'Siguiente evolucion en',
+    maxEvolution: 'Evolucion maxima alcanzada!',
+    // Actions
+    feedButton: 'Alimentar',
+    playButton: 'Jugar',
+    restButton: 'Descansar',
   },
 } as const
 
