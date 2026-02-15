@@ -50,6 +50,7 @@ const strings = {
     gameOver: 'GAME OVER',
     openChat: 'Open Chat',
     closeChat: 'Close Chat',
+    memorySaved: 'Memory saved',
   },
   es: {
     title: 'Regenmon',
@@ -98,6 +99,7 @@ const strings = {
     gameOver: 'FIN DEL JUEGO',
     openChat: 'Abrir Chat',
     closeChat: 'Cerrar Chat',
+    memorySaved: 'Memoria guardada',
   },
 } as const
 

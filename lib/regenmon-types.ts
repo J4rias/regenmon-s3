@@ -38,6 +38,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  memoryIndex?: number
 }
 
 // Sprite image map: archetypeId -> stage -> mood -> image path

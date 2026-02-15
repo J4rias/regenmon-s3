@@ -68,6 +68,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
   const [lastShownMessageId, setLastShownMessageId] = useState<string | null>(null)
   const [showSpriteBubble, setShowSpriteBubble] = useState(false)
   const [spriteBubbleText, setSpriteBubbleText] = useState('')
+  const [spriteBubbleMemory, setSpriteBubbleMemory] = useState<number | null>(null)
   const [isRegenmonTyping, setIsRegenmonTyping] = useState(false)
   const [cooldowns, setCooldowns] = useState<Record<string, boolean>>({
     hunger: false,
@@ -133,6 +134,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
       // If we have a new assistant message and NOT typing anymore
       setLastShownMessageId(lastAssistantMessage.id)
       setSpriteBubbleText(lastAssistantMessage.content)
+      setSpriteBubbleMemory(lastAssistantMessage.memoryIndex || null)
       setShowSpriteBubble(true)
 
       // Start 5 second timer to hide
@@ -140,6 +142,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
       bubbleTimerRef.current = setTimeout(() => {
         setShowSpriteBubble(false)
         setSpriteBubbleText('')
+        setSpriteBubbleMemory(null)
         bubbleTimerRef.current = null
       }, 5000)
     } else if (!isRegenmonTyping && !bubbleTimerRef.current && showSpriteBubble && !spriteBubbleText) {
@@ -408,7 +411,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
               {/* Sprite Speech Bubble (when chat is closed) */}
               {showSpriteBubble && !isChatOpen && (
                 <div
-                  className="sprite-bubble absolute top-[10px] left-[85%] -translate-x-1/2"
+                  className="sprite-bubble absolute top-[-20px] left-[55%]"
                   style={{
                     maxWidth: '280px',
                     width: 'max-content',
@@ -429,7 +432,18 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
                     }}
                   >
                     {spriteBubbleText ? (
-                      spriteBubbleText
+                      <>
+                        {spriteBubbleText}
+                        {spriteBubbleMemory && (
+                          <div
+                            className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black text-[10px] font-bold flex items-center gap-1 shadow-sm"
+                            style={{ zIndex: 1 }}
+                            title={s.memorySaved}
+                          >
+                            🧠 {spriteBubbleMemory}
+                          </div>
+                        )}
+                      </>
                     ) : isRegenmonTyping ? (
                       <span className="animate-pulse">...</span>
                     ) : null}

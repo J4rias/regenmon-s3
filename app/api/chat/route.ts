@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
       INSTRUCTIONS:
       - If the user mentions their name or something they like (e.g., "My name is Bob" or "I love pizza"), acknowledge it.
-      - If you detect a new memory, include it at the very end of your response in this format: [MEMORY: The user loves pizza]
+      - If you detect a new memory, include it at the very end of your response in this EXACT format: [MEMORY: description of memory]. Use the English word "MEMORY" even if responding in Spanish.
       - Keep responses strictly in character.
       - MANDATORY: Keep the response under 40 words.
     `

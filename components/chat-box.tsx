@@ -188,22 +188,24 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
             let replyContent = json.reply || '...'
 
-            // Check for memory extraction [MEMORY: ...]
-            const memoryMatch = replyContent.match(/\[MEMORY: (.*?)\]/)
+            // Check for memory extraction [MEMORY: ...] or [MEMORIA: ...]
+            const memoryMatch = replyContent.match(/\[MEMOR(Y|IA):\s*(.*?)\]/i)
             let newMemories = [...memories]
 
-            if (memoryMatch) {
-                const memoryText = memoryMatch[1]
-                newMemories.push(memoryText)
-                // Remove the meta-tag from display text
-                replyContent = replyContent.replace(memoryMatch[0], '').trim()
-            }
-
-            const assistantMsg: ChatMessage = {
+            let assistantMsg: ChatMessage & { memoryIndex?: number } = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: replyContent,
                 timestamp: new Date().toISOString(),
+            }
+
+            if (memoryMatch) {
+                const memoryContent = memoryMatch[2]
+                const memoryIndex = (memories?.length || 0) + 1
+                newMemories.push(memoryContent)
+
+                assistantMsg.memoryIndex = memoryIndex
+                assistantMsg.content = assistantMsg.content.replace(memoryMatch[0], '').trim()
             }
 
             const updatedHistory = [...newHistory, assistantMsg].slice(-20)
@@ -281,12 +283,20 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                                 padding: '8px 12px',
                                 wordBreak: 'break-word',
                                 lineHeight: '1.4',
-                                // Custom overrides for balloon colors if needed, but nes-balloon defaults are good
                                 backgroundColor: msg.role === 'user' ? 'var(--primary)' : 'var(--secondary)',
                                 color: msg.role === 'user' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                position: 'relative'
                             }}
                         >
                             {msg.content}
+                            {msg.memoryIndex && (
+                                <div
+                                    className="absolute -bottom-2 -right-2 bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black text-[10px] font-bold flex items-center gap-1 shadow-sm"
+                                    title={t(locale).memorySaved}
+                                >
+                                    🧠 {msg.memoryIndex}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
