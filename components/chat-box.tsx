@@ -39,6 +39,7 @@ export function ChatBox({ data, locale, onUpdate, isGameOver }: ChatBoxProps) {
         if (isGameOver) return
 
         const checkStat = async (stat: 'happiness' | 'energy' | 'hunger', value: number) => {
+            return // Temporarily disabled auto-complaints as requested
             const now = Date.now()
             const lastWarn = warningCooldowns.current[stat] || 0
 

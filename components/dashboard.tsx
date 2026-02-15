@@ -208,44 +208,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
         }
       `}</style>
 
-      {/* Evolution timer bar */}
-      <div
-        className="nes-container is-rounded mb-4 w-full max-w-3xl"
-        style={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', padding: '12px 16px' }}
-      >
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs" style={{ color: 'var(--foreground)' }}>
-            {s.evolutionLabel}: <span style={{ color: archetype.color }}>{stageLabels[stage]}</span>
-          </span>
-          <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-            {isMaxEvolution ? s.maxEvolution : `${s.nextEvolution} ${formatTime(timeRemaining)}`}
-          </span>
-        </div>
-        <div
-          className="relative h-6 w-full overflow-hidden border-4"
-          style={{ borderColor: archetype.color, backgroundColor: 'var(--secondary)' }}
-        >
-          <div
-            className="absolute inset-y-0 left-0 transition-all duration-1000"
-            style={{
-              width: `${timerProgress}%`,
-              backgroundColor: archetype.color,
-            }}
-          />
-        </div>
-        {/* Stage dots */}
-        <div className="mt-2 flex justify-between px-1">
-          {EVOLUTION_STAGES.map((s2, i) => (
-            <span
-              key={s2}
-              className="text-xs"
-              style={{ color: i <= stageIndex ? archetype.color : 'var(--muted-foreground)' }}
-            >
-              {stageLabels[s2]}
-            </span>
-          ))}
-        </div>
-      </div>
+
 
       {/* Main Layout - Single Column Stack for Focus */}
       <div className="flex w-full max-w-3xl flex-col gap-4">
@@ -264,6 +227,33 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
               {data.name}
             </p>
 
+            {/* Vertical Evolution Bar (Absolute Left) */}
+            <div
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 flex flex-col items-center justify-between h-40 sm:h-64 py-2 z-10 pointer-events-none"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '8px', padding: '4px 2px', backdropFilter: 'blur(2px)', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+            >
+
+
+              <span
+                className="text-[10px] sm:text-xs font-bold tracking-widest uppercase"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: archetype.color }}
+              >
+                {stageLabels[stage]}
+              </span>
+
+              <div className="relative flex-1 w-2 sm:w-3 my-2 bg-black/20 rounded-full overflow-hidden border border-white/10">
+                <div
+                  className="absolute bottom-0 left-0 w-full transition-all duration-1000"
+                  style={{ height: `${timerProgress}%`, backgroundColor: archetype.color }}
+                />
+              </div>
+
+              <span className="text-[10px] font-mono text-center" style={{ color: 'white', textShadow: '0 1px 2px black' }}>
+                {isMaxEvolution ? 'MAX' : formatTime(timeRemaining)}
+              </span>
+            </div>
+
+            {/* Sprite Animation Container */}
             <div className="relative">
               <div className="animate-breathe flex flex-col items-center gap-2">
                 {currentSprite ? (
