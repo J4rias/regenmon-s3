@@ -59,6 +59,10 @@ const strings = {
     noHistory: 'No recent activity',
     historyFeed: '🍎 Feed',
     historyEarn: '🪙 Earn',
+    cellName: 'Cells',
+    coinsTooltip: 'Regen Cells (Currency)',
+    processing: '⏳ Processing…',
+    ready: '✅ Ready!',
   },
   es: {
     title: 'Regenmon',
@@ -116,6 +120,10 @@ const strings = {
     noHistory: 'No hay actividad reciente',
     historyFeed: '🍎 Alimentar',
     historyEarn: '🪙 Ganar',
+    cellName: 'Celdas',
+    coinsTooltip: 'Celdas Regen (Moneda)',
+    processing: '⏳ Procesando…',
+    ready: '✅ ¡Listo!',
   },
 } as const
 

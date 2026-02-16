@@ -90,26 +90,37 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
 
   // Floating text helper
   // Floating text helper with positioned lanes to prevent overlap
-  const triggerPopup = useCallback((stat: keyof typeof STAT_COLORS | 'drain', amount: number) => {
+  const triggerPopup = useCallback((stat: keyof typeof STAT_COLORS | 'drain' | 'cells', amount: number) => {
     const id = floatingIdRef.current++
 
     // Assign distinct lanes or ranges based on stat type to avoid collision
     let randomX = 0
     if (stat === 'happiness') {
-      // Happiness: Left side (-70 to -40)
-      randomX = -40 - (Math.random() * 30)
+      // Happiness: Far Left (-110 to -80)
+      randomX = -80 - (Math.random() * 30)
     } else if (stat === 'energy') {
-      // Energy: Right side (+40 to +70)
-      randomX = 40 + (Math.random() * 30)
+      // Energy: Far Right (+80 to +110)
+      randomX = 80 + (Math.random() * 30)
     } else if (stat === 'hunger') {
-      // Hunger: Center-Right (-20 to +20)
-      randomX = (Math.random() * 40) - 20
+      // Hunger: Center-Left (-45 to -15)
+      randomX = -15 - (Math.random() * 30)
+    } else if (stat === 'cells') {
+      // Cells: Center-Right (+15 to +45)
+      randomX = 15 + (Math.random() * 30)
     } else {
-      // Drain / Default: Center (-30 to +30)
-      randomX = (Math.random() * 60) - 30
+      // Drain / Default: Dead Center (-10 to +10)
+      randomX = (Math.random() * 20) - 10
     }
 
-    const color = stat === 'drain' ? '#cd5c5c' : STAT_COLORS[stat]
+    let color = ''
+    if (stat === 'cells') {
+      color = amount > 0 ? '#76c442' : '#cd5c5c' // Green for gain, Red for spent
+    } else if (stat === 'drain') {
+      color = '#cd5c5c'
+    } else {
+      color = STAT_COLORS[stat]
+    }
+
     setFloatingTexts((prev: any) => [...prev, { id, stat, color, x: randomX, amount }])
     setTimeout(() => {
       setFloatingTexts((prev: any) => prev.filter((f: any) => f.id !== id))
@@ -166,8 +177,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
     const curr = data.coins ?? 0
     if (curr > prev) {
       // User said: "Cuando GANAS: mostrar por ejemplo +50 (icono celdas) en verde flotando"
-      // Hunger color is green (#76c442)
-      triggerPopup('hunger', curr - prev)
+      triggerPopup('cells', curr - prev)
     }
     prevCoinsRef.current = curr
   }, [data.coins, triggerPopup])
@@ -330,7 +340,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
 
         // --- NEW: Processing State ---
         setCooldowns((prev: any) => ({ ...prev, [stat]: true }))
-        setSpriteBubbleText("⏳ Procesando…")
+        setSpriteBubbleText(s.processing || "⏳ Procesando…")
         setShowSpriteBubble(true)
 
         // Artificial delay for specific user requirement
@@ -357,8 +367,8 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
           })
 
           // Visual feedback
-          triggerPopup('drain', -cost)
-          setSpriteBubbleText("✅ ¡Listo!")
+          triggerPopup('cells', -cost)
+          setSpriteBubbleText(s.ready || "✅ ¡Listo!")
 
           // Clear "Listo" after 2 seconds and release cooldown
           setTimeout(() => {
@@ -590,14 +600,17 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
                   className="float-up absolute text-2xl font-bold sm:text-3xl"
                   style={{
                     color: ft.color,
-                    top: '30%',
+                    top: ft.stat === 'cells' ? '15%' : '30%',
                     left: `calc(50% + ${ft.x}px)`,
                     transform: 'translateX(-50%)',
                     textShadow: `0 0 8px ${ft.color}80, 2px 2px 0 #000`,
-                    zIndex: 10,
+                    zIndex: 100,
                   }}
                 >
-                  {ft.amount > 0 ? `+${ft.amount}` : ft.amount}
+                  <span className="flex items-center gap-1">
+                    {ft.amount > 0 ? `+${ft.amount}` : ft.amount}
+                    {ft.stat === 'cells' && <i className="nes-icon coin is-small scale-75"></i>}
+                  </span>
                 </span>
               ))}
             </div>
@@ -747,7 +760,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
               </button>
               {/* Tooltip for cost */}
               <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-white/20">
-                -10 Cells 🪙
+                -10 {s.cellName} 🪙
               </div>
             </div>
           </div>
@@ -815,7 +828,7 @@ export function Dashboard({ locale, data, onUpdate, onReset }: DashboardProps) {
                       {action.type === 'feed' ? (s.historyFeed || '🍎 Alimentar') : (s.historyEarn || '🪙 Ganar')}
                     </span>
                     <span className={action.amount < 0 ? 'text-red-400' : 'text-green-400'}>
-                      {action.amount > 0 ? `+${action.amount}` : action.amount} Cells
+                      {action.amount > 0 ? `+${action.amount}` : action.amount} {s.cellName}
                     </span>
                     <span className="text-gray-400">
                       {new Date(action.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

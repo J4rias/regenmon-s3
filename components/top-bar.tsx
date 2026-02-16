@@ -105,7 +105,7 @@ export function TopBar({
           {regenmonData && (
             <div
               className={`flex items-center gap-2 mr-2 px-3 py-1 rounded border ${isDark ? 'bg-black/20 border-white/20' : 'bg-gray-200/50 border-black/10'}`}
-              title="Cells (Moneda)"
+              title={s.coinsTooltip}
             >
               <i className="nes-icon coin is-small scale-75"></i>
               <span
