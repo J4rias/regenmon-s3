@@ -326,13 +326,16 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
 
   const addStat = useCallback(
     (stat: 'happiness' | 'energy' | 'hunger') => {
+      // Use ref to avoid stale closure during delay
+      const currentData = dataRef.current
+
       // Don't allow if on cooldown or stat is maxed
-      if (cooldowns[stat] || data.stats[stat] >= 100 || isGameOver) return
+      if (cooldowns[stat] || currentData.stats[stat] >= 100 || isGameOver) return
 
       // Economy Check for Hunger (Feeding)
       if (stat === 'hunger') {
         const cost = 10
-        const currentCoins = data.coins ?? 0
+        const currentCoins = currentData.coins ?? 0
 
         // Validation: Sufficient coins
         if (currentCoins < cost) {
@@ -351,22 +354,25 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
 
         // Artificial delay for specific user requirement
         setTimeout(() => {
+          // Re-fetch ref in case stats changed during delay
+          const latest = dataRef.current
+
           // Proceed with feeding
           const amount = 10
-          const newStats = { ...data.stats }
+          const newStats = { ...latest.stats }
           newStats[stat] = Math.min(100, Math.max(0, newStats[stat] + amount))
-          const newCoins = currentCoins - cost
+          const newCoins = (latest.coins ?? 0) - cost
           const newAction: EconomyAction = {
             id: crypto.randomUUID(),
             type: 'feed',
             amount: -cost,
             date: new Date().toISOString()
           }
-          const newHistory = [newAction, ...(data.history || [])].slice(0, 10)
+          const newHistory = [newAction, ...(latest.history || [])].slice(0, 10)
 
           // Update data
           onUpdate({
-            ...data,
+            ...latest,
             stats: newStats,
             coins: newCoins,
             history: newHistory
@@ -386,10 +392,11 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
 
       } else {
         // Standard logic for other stats (no cost yet)
+        const latest = dataRef.current
         const amount = 10
-        const newStats = { ...data.stats }
+        const newStats = { ...latest.stats }
         newStats[stat] = Math.min(100, Math.max(0, newStats[stat] + amount))
-        onUpdate({ ...data, stats: newStats })
+        onUpdate({ ...latest, stats: newStats })
 
         // Start standard cooldown
         setCooldowns((prev: any) => ({ ...prev, [stat]: true }))
@@ -415,7 +422,8 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
   }
 
   const handleRewardClaim = (amount: number) => {
-    const currentCoins = data.coins ?? 0
+    const latest = dataRef.current
+    const currentCoins = latest.coins ?? 0
     const newCoins = currentCoins + amount
 
     // Add history
@@ -425,16 +433,13 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       amount: amount,
       date: new Date().toISOString()
     }
-    const newHistory = [newAction, ...(data.history || [])].slice(0, 10)
+    const newHistory = [newAction, ...(latest.history || [])].slice(0, 10)
 
     onUpdate({
-      ...data,
+      ...latest,
       coins: newCoins,
       history: newHistory
     })
-
-    // Visual feedback
-    triggerPopup('cells', amount)
   }
 
   // Force re-render sync with `now`
@@ -873,15 +878,25 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
               {data.history && data.history.length > 0 ? (
                 data.history.map((action) => (
                   <div key={action.id} className="flex justify-between items-center text-[10px] sm:text-xs border-b border-gray-700 pb-1 last:border-0">
-                    <span className="flex items-center gap-1">
-                      {action.type === 'feed' ? (s.historyFeed || '🍎 Alimentar') : (s.historyEarn || <span className="flex items-center gap-1"><CeldaIcon className="w-3 h-4" /> {s.historyEarn ? s.historyEarn.replace('🪙 ', '') : 'Ganar'}</span>)}
-                    </span>
-                    <span className={action.amount < 0 ? 'text-red-400' : 'text-green-400'}>
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      {action.type === 'feed' ? (
+                        <>
+                          <span className="w-4 text-center shrink-0">🍎</span>
+                          <span className="truncate">{s.feedButton}</span>
+                        </>
+                      ) : (
+                        <>
+                          <CeldaIcon className="w-4 h-5 shrink-0" />
+                          <span className="truncate">{s.historyEarn || 'Ganar'}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className={`w-24 sm:w-32 text-right font-mono whitespace-nowrap ${action.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
                       {action.amount > 0 ? `+${action.amount}` : action.amount} {s.cellName}
-                    </span>
-                    <span className="text-gray-400">
+                    </div>
+                    <div className="w-14 sm:w-20 text-right text-gray-500 text-[9px] ml-4 shrink-0">
                       {new Date(action.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    </div>
                   </div>
                 ))
               ) : (
