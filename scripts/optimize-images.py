@@ -4,10 +4,9 @@
 import os
 from PIL import Image
 
-# Define paths
-public_dir = '/vercel/share/v0-project/public'
-images_dir = os.path.join(public_dir, 'images')
-intro_bg_path = os.path.join(images_dir, 'intro-bg.png')
+# Define paths - absolute path to the image
+intro_bg_path = '/vercel/share/v0-project/public/images/intro-bg.png'
+images_dir = os.path.dirname(intro_bg_path)
 intro_bg_webp = os.path.join(images_dir, 'intro-bg.webp')
 
 if not os.path.exists(intro_bg_path):

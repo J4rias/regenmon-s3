@@ -33,7 +33,12 @@ export function StartScreen({ onStart, isDark, toggleTheme, locale, toggleLang }
             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-cover bg-center font-sans text-white"
             style={{
                 backgroundImage: 'url(/images/intro-bg.png)',
-                backgroundColor: '#2d2d2d'
+                backgroundColor: '#2d2d2d',
+                backgroundAttachment: 'fixed',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: 'cover',
+                willChange: 'background-image',
             }}
         >
             <div className="absolute inset-0 bg-black/60" />
