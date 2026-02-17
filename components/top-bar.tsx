@@ -153,10 +153,10 @@ export function TopBar({
           </div>
 
           {/* Reset Button - Hidden on mobile, visible on sm and larger */}
-          {onReset && (
+          {onReset && !isMobile && (
             <button
               type="button"
-              className="nes-btn is-error hidden sm:block"
+              className="nes-btn is-error"
               onClick={() => setShowConfirm(true)}
               style={{ fontSize: '10px' }}
             >
