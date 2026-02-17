@@ -788,7 +788,7 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
                 justifyContent: 'center',
                 fontSize: '12px',
                 fontWeight: 'bold',
-                color: 'white',
+                color: '#000000',
               }}
             >
               {unreadCount}
