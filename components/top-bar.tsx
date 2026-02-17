@@ -55,10 +55,11 @@ export function TopBar({
           padding: '8px 12px',
           gap: '12px',
           backgroundColor: 'var(--card)',
+          minHeight: '50px',
         }}
       >
         {/* Left: Toggles and User Info */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flex: '1 1 0%', justifyContent: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flex: '0 0 auto', justifyContent: 'flex-start' }}>
           <button
             type="button"
             onClick={onToggleLang}
@@ -79,8 +80,8 @@ export function TopBar({
           <RegenmonTheme />
         </div>
 
-        {/* Center: Archetype Info */}
-        <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '0 8px' }}>
+        {/* Center: Archetype Info - Hidden on mobile */}
+        <div className="hidden md:flex" style={{ display: 'flex', flexShrink: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '0 8px', minWidth: 0 }}>
           {archetypeInfo && (
             <p
               style={{
@@ -102,19 +103,23 @@ export function TopBar({
         </div>
 
         {/* Right: Actions (User Info, Reset & Logout) */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flex: '1 1 0%', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flex: '0 0 auto', gap: '8px' }}>
 
 
           {/* Coin Display */}
           {regenmonData && (
             <div
-              className={`flex items-center gap-2 mr-2 px-3 py-1 rounded border ${isDark ? 'bg-black/20 border-white/20' : 'bg-gray-200/50 border-black/10'}`}
+              className={`flex items-center gap-2 px-2 py-1 rounded border text-xs`}
+              style={{
+                backgroundColor: isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(200, 200, 200, 0.5)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+              }}
               title={s.coinsTooltip}
             >
-              <CeldaIcon className="w-3 h-4" />
+              <CeldaIcon className="w-3 h-3" />
               <span
-                className="text-xs sm:text-sm font-bold relative group"
-                style={{ color: isDark ? '#fbbf24' : '#b45309' }} // Darker amber for light theme
+                className="font-bold"
+                style={{ color: isDark ? '#fbbf24' : '#b45309' }}
               >
                 {regenmonData.coins ?? 0}
               </span>
@@ -128,7 +133,7 @@ export function TopBar({
           {onReset && (
             <button
               type="button"
-              className="nes-btn is-error"
+              className="nes-btn is-error hidden sm:block"
               onClick={() => setShowConfirm(true)}
               style={{ fontSize: '10px' }}
             >
@@ -140,11 +145,11 @@ export function TopBar({
             type="button"
             className="nes-btn is-warning"
             onClick={logout}
-            style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px' }}
             title={s.logoutButton}
           >
             <LogOut size={12} />
-            {s.logoutButton}
+            <span className="hidden sm:inline">{s.logoutButton}</span>
           </button>
         </div>
       </header>
