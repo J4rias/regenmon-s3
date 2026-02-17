@@ -152,6 +152,18 @@ export function TopBar({
             <span title={displayName} className="whitespace-nowrap">{shortName}</span>
           </div>
 
+          {/* Reset Button - Hidden on mobile, visible on sm and larger */}
+          {onReset && (
+            <button
+              type="button"
+              className="nes-btn is-error hidden sm:block"
+              onClick={() => setShowConfirm(true)}
+              style={{ fontSize: '10px' }}
+            >
+              {s.resetButton}
+            </button>
+          )}
+
           {/* Logout Button - Always visible */}
           <button
             type="button"
