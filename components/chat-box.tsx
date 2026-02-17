@@ -66,54 +66,77 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
     const lastRescuePromptRef = useRef<number>(0)
 
+    // State to force re-evaluation of the rescue timer (e.g. for cooldowns)
+    const [rescueEvalTick, setRescueEvalTick] = useState(0)
+    useEffect(() => {
+        if ((data.coins ?? 0) <= 0 && challengeState === 'IDLE') {
+            const interval = setInterval(() => setRescueEvalTick(prev => prev + 1), 5000)
+            return () => clearInterval(interval)
+        }
+    }, [data.coins, challengeState])
+
     // Check for Rescue Mode trigger
     useEffect(() => {
-        if (!isGameOver && challengeState === 'IDLE') {
-            const currentRec = dataRef.current
-            const coins = currentRec.coins ?? 0
-            const dailyClaimed = currentRec.dailyRewardsClaimed ?? 0
-            const lastDate = currentRec.lastDailyRewardDate
-
-            // Reset daily count if new day
-            const today = new Date().toISOString().split('T')[0]
-            const recordDate = lastDate ? lastDate.split('T')[0] : ''
-            const effectiveClaimed = recordDate === today ? dailyClaimed : 0
-
-            // Trigger if 0 coins and daily limit not reached
-            if (coins <= 0 && effectiveClaimed < 3) {
-                // Check cooldown (2 minutes)
-                if (Date.now() - lastRescuePromptRef.current < 120000) return
-
-                // Check if we already sent the prompt as the last message
-                const history = messagesRef.current
-                const lastMsg = history[history.length - 1]
-                if (lastMsg?.content === s.rescuePrompt) {
-                    setChallengeState('PROMPT')
-                    return
-                }
-
-                // Delay the prompt by 10s as requested to avoid message collisions
-                if (!rescueTimerRef.current) {
-                    rescueTimerRef.current = setTimeout(() => {
-                        setChallengeState('PROMPT')
-                        addAssistantMessage(s.rescuePrompt)
-                        lastRescuePromptRef.current = Date.now() // Update time when shown
-                        rescueTimerRef.current = null
-                    }, 10000)
-                }
-            } else {
-                // Clear timer if coins are added back before it fires
-                if (rescueTimerRef.current) {
-                    clearTimeout(rescueTimerRef.current)
-                    rescueTimerRef.current = null
-                }
+        // Outer check for game state
+        if (isGameOver || challengeState !== 'IDLE') {
+            if (rescueTimerRef.current) {
+                clearTimeout(rescueTimerRef.current)
+                rescueTimerRef.current = null
             }
+            return
         }
 
+        const currentRec = dataRef.current
+        const coins = currentRec.coins ?? 0
+        const dailyClaimed = currentRec.dailyRewardsClaimed ?? 0
+        const today = new Date().toISOString().split('T')[0]
+        const recordDate = currentRec.lastDailyRewardDate ? currentRec.lastDailyRewardDate.split('T')[0] : ''
+        const effectiveClaimed = recordDate === today ? dailyClaimed : 0
+
+        // If conditions for rescue aren't met, clear any pending timer
+        if (coins > 0 || effectiveClaimed >= 3) {
+            if (rescueTimerRef.current) {
+                clearTimeout(rescueTimerRef.current)
+                rescueTimerRef.current = null
+            }
+            return
+        }
+
+        // COOLDOWN LOGIC:
+        // Only enforce 2min cooldown if we have SHOWN it before (lastRescuePromptRef > 0)
+        if (lastRescuePromptRef.current > 0) {
+            const timeSinceLast = Date.now() - lastRescuePromptRef.current
+            if (timeSinceLast < 120000) return
+        }
+
+        // CHECK IF ALREADY SHOWN IN HISTORY
+        const history = messagesRef.current
+        const lastMsg = history[history.length - 1]
+        if (lastMsg?.content === s.rescuePrompt) {
+            setChallengeState('PROMPT')
+            return
+        }
+
+        // START TIMER IF NOT ALREADY RUNNING
+        // Note: We do NOT clear this timer in the cleanup of this effect if it re-runs 
+        // due to 'messages' because that would 'reset' the 10s wait every time someone speaks.
+        if (!rescueTimerRef.current) {
+            rescueTimerRef.current = setTimeout(() => {
+                setChallengeState('PROMPT')
+                addAssistantMessage(s.rescuePrompt)
+                lastRescuePromptRef.current = Date.now() // Start cooldown clock
+                rescueTimerRef.current = null
+            }, 10000)
+        }
+
+    }, [data.coins, data.dailyRewardsClaimed, data.lastDailyRewardDate, challengeState, isGameOver, s, messages, rescueEvalTick])
+
+    // Specific cleanup for unmount
+    useEffect(() => {
         return () => {
             if (rescueTimerRef.current) clearTimeout(rescueTimerRef.current)
         }
-    }, [data.coins, data.dailyRewardsClaimed, data.lastDailyRewardDate, challengeState, isGameOver, s, messages]) // Added messages to dept
+    }, [])
 
     const addAssistantMessage = (content: string) => {
         const msg: ChatMessage = {
