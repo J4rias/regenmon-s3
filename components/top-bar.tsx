@@ -182,17 +182,18 @@ export function TopBar({
       {/* Mobile Menu - Only shown on mobile */}
       {isMobile && showMobileMenu && (
         <div
-          className="fixed z-50 border-b-2 border-border"
+          className="fixed z-50 border-r-2 border-b-2 border-border shadow-lg"
           style={{
             top: '50px',
             left: '0',
-            width: '60%',
-            maxWidth: '280px',
+            width: '70%',
+            maxWidth: '300px',
             backgroundColor: 'var(--card)',
-            padding: '12px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            gap: '12px',
+            boxShadow: '4px 0 8px rgba(0, 0, 0, 0.2)',
           }}
         >
           {/* Language Toggle */}
