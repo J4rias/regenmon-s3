@@ -75,9 +75,9 @@ export function TopBar({
         {isMobile && (
           <button
             type="button"
-            className="nes-btn flex absolute left-3"
+            className="nes-btn flex"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
-            style={{ fontSize: '10px', width: '40px', height: '35px', padding: 0, alignItems: 'center', justifyContent: 'center' }}
+            style={{ fontSize: '10px', width: '40px', height: '35px', padding: 0, alignItems: 'center', justifyContent: 'center', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
           >
             {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
           </button>
