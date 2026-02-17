@@ -182,9 +182,12 @@ export function TopBar({
       {/* Mobile Menu - Only shown on mobile */}
       {isMobile && showMobileMenu && (
         <div
-          className="fixed left-0 right-0 z-50 border-b-2 border-border"
+          className="fixed z-50 border-b-2 border-border"
           style={{
             top: '50px',
+            left: '0',
+            width: '60%',
+            maxWidth: '280px',
             backgroundColor: 'var(--card)',
             padding: '12px',
             display: 'flex',
