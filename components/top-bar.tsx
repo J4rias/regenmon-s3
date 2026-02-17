@@ -90,8 +90,8 @@ export function TopBar({
           <RegenmonTheme />
         </div>
 
-        {/* Center: Archetype Info - Only shown on large screens (lg+) */}
-        <div className="hidden lg:flex" style={{ flexShrink: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '0 8px', minWidth: 0 }}>
+        {/* Center: Archetype Info - Shown on tablet and larger (md+) */}
+        <div className="hidden md:flex" style={{ flexShrink: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '0 8px', minWidth: 0 }}>
           {archetypeInfo && (
             <p
               style={{
@@ -191,10 +191,10 @@ export function TopBar({
             {isDark ? '☀️ Light Mode' : '🌙 Dark Mode'}
           </button>
 
-          {/* Archetype Info */}
+          {/* Archetype Info - Only shown in mobile menu */}
           {archetypeInfo && (
             <div
-              className="nes-container w-full"
+              className="md:hidden nes-container w-full"
               style={{
                 backgroundColor: 'var(--background)',
                 color: 'var(--foreground)',
