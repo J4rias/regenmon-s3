@@ -13,6 +13,19 @@ const nextConfig = {
       'pino-pretty': './lib/noop.js',
     },
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://auth.privy.io",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig
