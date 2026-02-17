@@ -70,7 +70,7 @@ export function TopBar({
         </button>
 
         {/* Desktop Left: Toggles and Theme */}
-        <div className="hidden sm:flex" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flex: '0 0 auto', justifyContent: 'flex-start' }}>
+        <div className="hidden sm:flex flex-row" style={{ alignItems: 'center', gap: '8px', flex: '0 0 auto', justifyContent: 'flex-start' }}>
           <button
             type="button"
             onClick={onToggleLang}
