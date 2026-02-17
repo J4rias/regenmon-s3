@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Sun, Moon, LogOut } from 'lucide-react'
+import { Sun, Moon, LogOut, Menu, X } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
 import type { Locale } from '@/lib/i18n'
 import type { RegenmonData } from '@/lib/regenmon-types'
@@ -16,7 +16,7 @@ interface TopBarProps {
   onToggleLang: () => void
   archetypeInfo?: string
   onReset?: () => void
-  regenmonData?: any // Using any to avoid circular dependency issues if types aren't fully propagated yet, but ideally RegenmonData
+  regenmonData?: any
   playerName?: string
 }
 
@@ -32,6 +32,7 @@ export function TopBar({
 }: TopBarProps) {
   const s = t(locale)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const { user, logout } = usePrivy()
 
   const displayName = playerName || user?.email?.address || user?.wallet?.address || 'User'
@@ -53,13 +54,23 @@ export function TopBar({
           justifyContent: 'space-between',
           width: '100%',
           padding: '8px 12px',
-          gap: '12px',
+          gap: '8px',
           backgroundColor: 'var(--card)',
           minHeight: '50px',
         }}
       >
-        {/* Left: Toggles and User Info */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flex: '0 0 auto', justifyContent: 'flex-start' }}>
+        {/* Mobile Menu Button */}
+        <button
+          type="button"
+          className="sm:hidden nes-btn"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          style={{ fontSize: '10px', width: '40px', height: '35px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        {/* Desktop Left: Toggles and Theme */}
+        <div className="hidden sm:flex" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', flex: '0 0 auto', justifyContent: 'flex-start' }}>
           <button
             type="button"
             onClick={onToggleLang}
@@ -76,7 +87,6 @@ export function TopBar({
           >
             {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
           </button>
-
           <RegenmonTheme />
         </div>
 
@@ -102,10 +112,8 @@ export function TopBar({
           )}
         </div>
 
-        {/* Right: Actions (User Info, Reset & Logout) */}
+        {/* Right: User Name, Coins, and Logout */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flex: '0 0 auto', gap: '8px' }}>
-
-
           {/* Coin Display */}
           {regenmonData && (
             <div
@@ -126,21 +134,12 @@ export function TopBar({
             </div>
           )}
 
-          <div className="hidden sm:flex items-center gap-2 px-2 py-1 border-2 border-dashed border-gray-500 rounded text-[10px]" style={{ color: 'var(--foreground)', height: '35px' }}>
-            <span title={displayName}>{shortName}</span>
+          {/* User Name - Always visible */}
+          <div className="flex items-center gap-2 px-2 py-1 border-2 border-dashed border-gray-500 rounded text-[10px] sm:text-[11px]" style={{ color: 'var(--foreground)', height: '35px' }}>
+            <span title={displayName} className="whitespace-nowrap">{shortName}</span>
           </div>
 
-          {onReset && (
-            <button
-              type="button"
-              className="nes-btn is-error hidden sm:block"
-              onClick={() => setShowConfirm(true)}
-              style={{ fontSize: '10px' }}
-            >
-              {s.resetButton}
-            </button>
-          )}
-
+          {/* Logout Button - Always visible */}
           <button
             type="button"
             className="nes-btn is-warning"
@@ -153,6 +152,84 @@ export function TopBar({
           </button>
         </div>
       </header>
+
+      {/* Mobile Menu */}
+      {showMobileMenu && (
+        <div
+          className="sm:hidden fixed top-14 left-0 right-0 z-30 border-b-2 border-border"
+          style={{
+            backgroundColor: 'var(--card)',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          {/* Language Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              onToggleLang()
+              setShowMobileMenu(false)
+            }}
+            className="nes-btn w-full"
+            style={{ fontSize: '12px', textAlign: 'left' }}
+          >
+            {locale === 'en' ? '🇪🇸 Español' : '🇬🇧 English'}
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              onToggleTheme()
+              setShowMobileMenu(false)
+            }}
+            className="nes-btn w-full"
+            style={{ fontSize: '12px', textAlign: 'left' }}
+          >
+            {isDark ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
+
+          {/* Archetype Info */}
+          {archetypeInfo && (
+            <div
+              className="nes-container w-full"
+              style={{
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)',
+                fontSize: '12px',
+                padding: '8px',
+                textAlign: 'center',
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                {archetypeInfo}
+              </p>
+            </div>
+          )}
+
+          {/* Reset Button */}
+          {onReset && (
+            <button
+              type="button"
+              className="nes-btn is-error w-full"
+              onClick={() => {
+                setShowConfirm(true)
+                setShowMobileMenu(false)
+              }}
+              style={{ fontSize: '12px' }}
+            >
+              {s.resetButton}
+            </button>
+          )}
+
+          {/* Theme Component */}
+          <div style={{ paddingTop: '8px' }}>
+            <RegenmonTheme />
+          </div>
+        </div>
+      )}
 
       {/* Confirm Reset Dialog */}
       {showConfirm && onReset && (
