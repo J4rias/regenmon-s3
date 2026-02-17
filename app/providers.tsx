@@ -5,13 +5,19 @@ import { LanguageProvider, useLanguage } from '@/components/language-provider';
 
 function PrivyWrapper({ children }: { children: React.ReactNode }) {
     const { locale } = useLanguage();
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
     const landingHeader = locale === 'en' ? 'Log in or sign up' : 'Inicia Sesión o Regístrate';
     const loginMessage = locale === 'en' ? 'Log in to continue' : 'Inicia sesión para continuar';
 
+    // Only render PrivyProvider if a valid app ID is configured
+    if (!appId) {
+        return <>{children}</>;
+    }
+
     return (
         <PrivyProvider
-            appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
+            appId={appId}
             config={{
                 loginMethods: ['email', 'google'],
                 appearance: {
