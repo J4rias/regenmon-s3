@@ -23,6 +23,17 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
     const inputRef = useRef<HTMLInputElement>(null)
     const chatContainerRef = useRef<HTMLDivElement>(null)
     const [sessionCount, setSessionCount] = useState(0)
+    const messagesRef = useRef<ChatMessage[]>(messages)
+    const dataRef = useRef<RegenmonData>(data)
+
+    // Keep refs in sync for use in timers/effects
+    useEffect(() => {
+        messagesRef.current = messages
+    }, [messages])
+
+    useEffect(() => {
+        dataRef.current = data
+    }, [data])
 
     // Challenge State
     const [challengeState, setChallengeState] = useState<'IDLE' | 'PROMPT' | 'CHALLENGE'>('IDLE')
@@ -36,7 +47,11 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
     // Notify parent when typing state changes
     useEffect(() => {
         onTypingChange?.(isTyping)
-    }, [isTyping, onTypingChange])
+        // Focus when typing ends
+        if (!isTyping && !isGameOver) {
+            setTimeout(() => inputRef.current?.focus(), 10)
+        }
+    }, [isTyping, onTypingChange, isGameOver])
 
     // Auto-scroll internal container only (avoids page scroll)
     useEffect(() => {
@@ -47,12 +62,17 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
     const s = t(locale)
 
+    const rescueTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+    const lastRescuePromptRef = useRef<number>(0)
+
     // Check for Rescue Mode trigger
     useEffect(() => {
         if (!isGameOver && challengeState === 'IDLE') {
-            const coins = data.coins ?? 0
-            const dailyClaimed = data.dailyRewardsClaimed ?? 0
-            const lastDate = data.lastDailyRewardDate
+            const currentRec = dataRef.current
+            const coins = currentRec.coins ?? 0
+            const dailyClaimed = currentRec.dailyRewardsClaimed ?? 0
+            const lastDate = currentRec.lastDailyRewardDate
 
             // Reset daily count if new day
             const today = new Date().toISOString().split('T')[0]
@@ -61,11 +81,39 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
             // Trigger if 0 coins and daily limit not reached
             if (coins <= 0 && effectiveClaimed < 3) {
-                setChallengeState('PROMPT')
-                addAssistantMessage(s.rescuePrompt)
+                // Check cooldown (2 minutes)
+                if (Date.now() - lastRescuePromptRef.current < 120000) return
+
+                // Check if we already sent the prompt as the last message
+                const history = messagesRef.current
+                const lastMsg = history[history.length - 1]
+                if (lastMsg?.content === s.rescuePrompt) {
+                    setChallengeState('PROMPT')
+                    return
+                }
+
+                // Delay the prompt by 10s as requested to avoid message collisions
+                if (!rescueTimerRef.current) {
+                    rescueTimerRef.current = setTimeout(() => {
+                        setChallengeState('PROMPT')
+                        addAssistantMessage(s.rescuePrompt)
+                        lastRescuePromptRef.current = Date.now() // Update time when shown
+                        rescueTimerRef.current = null
+                    }, 10000)
+                }
+            } else {
+                // Clear timer if coins are added back before it fires
+                if (rescueTimerRef.current) {
+                    clearTimeout(rescueTimerRef.current)
+                    rescueTimerRef.current = null
+                }
             }
         }
-    }, [data.coins, data.dailyRewardsClaimed, data.lastDailyRewardDate, challengeState, isGameOver, s])
+
+        return () => {
+            if (rescueTimerRef.current) clearTimeout(rescueTimerRef.current)
+        }
+    }, [data.coins, data.dailyRewardsClaimed, data.lastDailyRewardDate, challengeState, isGameOver, s, messages]) // Added messages to dept
 
     const addAssistantMessage = (content: string) => {
         const msg: ChatMessage = {
@@ -74,12 +122,26 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
             content,
             timestamp: new Date().toISOString(),
         }
-        setMessages(prev => [...prev, msg])
+
+        const updatedHistory = [...messagesRef.current, msg].slice(-20)
+        setMessages(updatedHistory)
+        messagesRef.current = updatedHistory
+
+        onUpdate({
+            ...dataRef.current,
+            chatHistory: updatedHistory
+        })
+
+        // Ensure focus
+        setTimeout(() => inputRef.current?.focus(), 50)
     }
 
     // Sync state with parent data updates (if parent resets or loads saves)
     useEffect(() => {
-        if (data.chatHistory) setMessages(data.chatHistory)
+        if (data.chatHistory) {
+            setMessages(data.chatHistory)
+            messagesRef.current = data.chatHistory
+        }
         if (data.memories) setMemories(data.memories)
     }, [data.chatHistory, data.memories])
 
@@ -97,6 +159,10 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
         if (dailyEarnings >= 50) return currentData
 
         const currentCoins = currentData.coins ?? 0
+
+        // NO earnings if already at 0. User MUST do the challenge to restart.
+        if (currentCoins <= 0) return currentData
+
         // Difficulty Logic:
         // < 80 coins: 80% chance
         // >= 80 coins: 10% chance
@@ -124,6 +190,19 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
         const trimmedInput = inputValue.trim()
         if (!trimmedInput || isTyping || isGameOver) return
 
+        const currentData = dataRef.current
+
+        // Easter Egg: /cells
+        if (trimmedInput.toLowerCase() === '/cells') {
+            const newCoins = (currentData.coins ?? 0) + 100
+            onUpdate({
+                ...currentData,
+                coins: newCoins
+            })
+            setInputValue('')
+            return
+        }
+
         const userMsg: ChatMessage = {
             id: Date.now().toString(),
             role: 'user',
@@ -132,13 +211,64 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
         }
 
         // Optimistic update
-        const newHistory = [...messages, userMsg].slice(-20)
+        const newHistory = [...messagesRef.current, userMsg].slice(-20)
         setMessages(newHistory)
+        messagesRef.current = newHistory
         setInputValue('')
+
+        // --- PRE-PROCESSING & PASSIVE EARNING ---
+        // We do this up front so ALL interactions (including rescue/challenge) benefit.
+        const dataWithEarnings = checkPassiveEarning(currentData)
+
+        // Update stats: progressive energy cost
+        const currentSession = sessionCount + 1
+        setSessionCount(currentSession)
+
+        let baseCost = 3
+        if (currentSession > 15) baseCost = 5
+        else if (currentSession > 5) baseCost = 4
+
+        const energyCost = baseCost + (inputValue.length > 50 ? 2 : 0)
+        const newStats = { ...dataWithEarnings.stats }
+        newStats.happiness = Math.min(100, newStats.happiness + 5)
+        newStats.energy = Math.max(0, newStats.energy - energyCost)
+
+        const lowerInput = trimmedInput.toLowerCase()
+
+        // Apply changes (user message + passive earnings + stats)
+        onUpdate({
+            ...dataWithEarnings,
+            stats: newStats,
+            chatHistory: newHistory,
+            memories: memories
+        })
+
+        const rescueKeywords = locale === 'es'
+            ? ['quiero celdas', 'ganar celdas', 'necesito celdas', 'dame celdas']
+            : ['want cells', 'earn cells', 'need cells', 'give me cells']
+
+        if (currentData.coins <= 0 && (currentData.dailyRewardsClaimed ?? 0) < 3 && rescueKeywords.some(k => lowerInput.includes(k))) {
+            const challenge = getRandomChallenge()
+            setCurrentChallenge(challenge)
+            setChallengeState('CHALLENGE')
+            setWrongAttempts(0)
+
+            // Optimistic update removed (handled globally)
+            // const newHistory = [...messagesRef.current, userMsg].slice(-20)
+            // setMessages(newHistory)
+            // messagesRef.current = newHistory
+            // setInputValue('')
+
+            setIsTyping(true)
+            setTimeout(() => {
+                addAssistantMessage(locale === 'es' ? "¡Genial! Responde esto para ganar tu recompensa: " + challenge.question_es : "Great! Answer this to earn your reward: " + challenge.question_en)
+                setIsTyping(false)
+            }, 1000)
+            return
+        }
 
         // --- CHALLENGE LOGIC ---
         if (challengeState === 'PROMPT') {
-            const lowerInput = trimmedInput.toLowerCase()
             const affirmative = locale === 'es' ? ['si', 'sí', 'claro', 'quiero', 'ok'] : ['yes', 'yeah', 'sure', 'ok', 'yep']
 
             if (affirmative.some(w => lowerInput.includes(w))) {
@@ -146,6 +276,13 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                 setCurrentChallenge(challenge)
                 setChallengeState('CHALLENGE')
                 setWrongAttempts(0)
+
+                // Optimistic update removed (handled globally)
+                // const newHistory = [...messagesRef.current, userMsg].slice(-20)
+                // setMessages(newHistory)
+                // messagesRef.current = newHistory
+                // setInputValue('')
+
                 setIsTyping(true)
                 setTimeout(() => {
                     addAssistantMessage(locale === 'es' ? challenge.question_es : challenge.question_en)
@@ -153,8 +290,28 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                 }, 1000)
                 return
             } else {
+                // User rejected or ignored the prompt
                 setChallengeState('IDLE')
-                return
+                // We don't return here, we let it fall through to normal chat
+                // But we should probably acknowledge it if they said "no"
+                const negative = locale === 'es' ? ['no', 'nop'] : ['no', 'nah']
+                if (negative.some(w => lowerInput.includes(w))) {
+                    // Optimistic update removed (handled globally)
+                    // const newHistory = [...messagesRef.current, userMsg].slice(-20)
+                    // setMessages(newHistory)
+                    // messagesRef.current = newHistory
+                    // setInputValue('')
+
+                    // Reset cooldown on rejection
+                    lastRescuePromptRef.current = Date.now()
+
+                    setIsTyping(true)
+                    setTimeout(() => {
+                        addAssistantMessage(locale === 'es' ? "Entendido. Avísame si cambias de opinión." : "Understood. Let me know if you change your mind.")
+                        setIsTyping(false)
+                    }, 1000)
+                    return
+                }
             }
         }
 
@@ -199,39 +356,15 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
         // --- NORMAL CHAT LOGIC ---
         setIsTyping(true)
-
-        // Passive Earning Check
-        let updatedData = checkPassiveEarning(data)
-        const earned = (updatedData.coins ?? 0) - (data.coins ?? 0)
-
-        // Update stats: progressive energy cost
-        const currentSession = sessionCount + 1
-        setSessionCount(currentSession)
-
-        let baseCost = 3
-        if (currentSession > 15) baseCost = 5
-        else if (currentSession > 5) baseCost = 4
-
-        const lengthPenalty = inputValue.length > 50 ? 2 : 0
-        const energyCost = baseCost + lengthPenalty
-
-        const newStats = { ...updatedData.stats }
-        newStats.happiness = Math.min(100, newStats.happiness + 5)
-        newStats.energy = Math.max(0, newStats.energy - energyCost)
-
-        onUpdate({
-            ...updatedData,
-            stats: newStats,
-            chatHistory: newHistory,
-            memories: memories
-        })
+        const earned = (dataWithEarnings.coins ?? 0) - (currentData.coins ?? 0)
 
         // Show earning feedback if any
         if (earned > 0) {
-            // We can't easily show a popup from here without prop drilling triggerPopup
-            // But we can add a small system message or rely on Dashboard coin observer
             // The dashboard observer will trigger the +popup automatically when it sees coins increase!
         }
+
+
+
 
         try {
             const response = await fetch('/api/chat', {
@@ -241,8 +374,8 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                     message: userMsg.content,
                     history: newHistory,
                     stats: newStats,
-                    name: data.name,
-                    type: data.type,
+                    name: currentData.name,
+                    type: currentData.type,
                     memories: memories,
                     locale: locale
                 }),
@@ -293,13 +426,18 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
             const updatedHistory = [...newHistory, assistantMsg].slice(-20)
 
             setMessages(updatedHistory)
+            messagesRef.current = updatedHistory
             setMemories(newMemories)
 
+            // Use dataRef.current to get latest stats (which might have drained while waiting for API)
             onUpdate({
-                ...updatedData,
+                ...dataRef.current,
                 stats: newStats,
                 chatHistory: updatedHistory,
-                memories: newMemories
+                memories: newMemories,
+                coins: dataWithEarnings.coins,
+                dailyChatEarnings: dataWithEarnings.dailyChatEarnings,
+                lastChatEarningDate: dataWithEarnings.lastChatEarningDate
             })
 
         } catch (error) {

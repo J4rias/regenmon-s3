@@ -197,15 +197,34 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
   }, [])
 
   // Detect unread messages
-  const currentMessageCount = data.chatHistory?.length || 0
-  const hasUnreadMessages = !isChatOpen && currentMessageCount > lastReadMessageCount
+  // Use ID tracking instead of count to handle capped history
+  const history = data.chatHistory || []
+  const lastMessage = history[history.length - 1]
+  const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(lastMessage?.id || null)
 
-  // Mark messages as read when chat is opened
+  const hasUnreadMessages = !isChatOpen && lastMessage && lastMessage.id !== lastReadMessageId
+
+  // Mark messages as read when chat is opened or new messages arrive while open
   useEffect(() => {
-    if (isChatOpen) {
-      setLastReadMessageCount(currentMessageCount)
+    if (isChatOpen && lastMessage && lastMessage.id !== lastReadMessageId) {
+      setLastReadMessageId(lastMessage.id)
     }
-  }, [isChatOpen, currentMessageCount])
+  }, [isChatOpen, lastMessage, lastReadMessageId])
+
+  // Calculate unread count
+  const lastReadIndex = history.findIndex((m: any) => m.id === lastReadMessageId)
+  let unreadCount = 0
+  if (lastReadMessageId && lastReadIndex !== -1) {
+    unreadCount = (history.length - 1) - lastReadIndex
+  } else if (lastReadMessageId && lastReadIndex === -1) {
+    // If last read ID is gone (rotated out), assume all visible are unread?
+    // Or just default to history length? 
+    // Safest: assume all current history is unread if we lost track.
+    unreadCount = history.length
+  } else if (!lastReadMessageId && history.length > 0) {
+    // If we never read anything (should be covered by initial state, but explicit check)
+    unreadCount = history.length
+  }
 
   // Single source of truth for the bubble visibility and content
   const bubbleTimerRef = useRef<any>(null)
@@ -216,6 +235,14 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     if (isChatOpen) {
       if (showSpriteBubble) setShowSpriteBubble(false)
       if (spriteBubbleText) setSpriteBubbleText('')
+
+      // Update lastShownMessageId so it doesn't pop up when closing chat
+      const history = data.chatHistory || []
+      const lastAssistantMessage = [...history].reverse().find(m => m.role === 'assistant')
+      if (lastAssistantMessage && lastAssistantMessage.id !== lastShownMessageId) {
+        setLastShownMessageId(lastAssistantMessage.id)
+      }
+
       if (bubbleTimerRef.current) {
         clearTimeout(bubbleTimerRef.current)
         bubbleTimerRef.current = null
@@ -748,7 +775,7 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
                 color: 'white',
               }}
             >
-              {currentMessageCount - lastReadMessageCount}
+              {unreadCount}
             </span>
           )}
         </button>
