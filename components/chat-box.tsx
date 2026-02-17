@@ -184,13 +184,22 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
 
         const currentCoins = currentData.coins ?? 0
 
+        // Hard Cap: No chat earnings if user has 100 or more cells
+        if (currentCoins >= 100) return currentData
+
         // NO earnings if already at 0. User MUST do the challenge to restart.
         if (currentCoins <= 0) return currentData
 
         // Difficulty Logic:
-        // < 80 coins: 80% chance
+        // < 50 coins: 80% chance
+        // 50-79 coins: 50% chance
         // >= 80 coins: 10% chance
-        const chance = currentCoins < 80 ? 0.8 : 0.1
+        let chance = 0.8
+        if (currentCoins >= 80) {
+            chance = 0.1
+        } else if (currentCoins >= 50) {
+            chance = 0.5
+        }
 
         if (Math.random() > chance) return currentData
 
@@ -201,10 +210,10 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
         const actualEarned = Math.min(earned, 50 - dailyEarnings)
         if (actualEarned <= 0) return currentData
 
-        // Update data
+        // Update data (Clamped to 100 cells)
         return {
             ...currentData,
-            coins: currentCoins + actualEarned,
+            coins: Math.min(100, currentCoins + actualEarned),
             dailyChatEarnings: dailyEarnings + actualEarned,
             lastChatEarningDate: new Date().toISOString()
         }
@@ -292,6 +301,11 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                 const newHistory = [...messagesRef.current, userCommandMsg, systemMsg].slice(-20)
                 setMessages(newHistory)
                 messagesRef.current = newHistory
+
+                onUpdate({
+                    ...currentData,
+                    chatHistory: newHistory
+                })
                 return
             }
         }
@@ -618,13 +632,16 @@ export function ChatBox({ data, locale, onUpdate, isGameOver, isOpen, onTypingCh
                             <div
                                 className={`nes-balloon from-left is-small ${msg.role === 'user' ? 'from-right is-dark' : ''}`}
                                 style={{
-                                    maxWidth: '85%',
+                                    maxWidth: '92%',
                                     fontSize: '12px',
                                     padding: '8px 12px',
-                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    wordBreak: 'keep-all',
+                                    hyphens: 'none',
                                     lineHeight: '1.4',
                                     backgroundColor: msg.role === 'user' ? 'var(--primary)' : 'var(--secondary)',
                                     color: msg.role === 'user' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                    whiteSpace: 'pre-wrap',
                                 }}
                             >
                                 {msg.content}

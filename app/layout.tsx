@@ -3,6 +3,7 @@ import { Press_Start_2P } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import Providers from './providers'
+import ConvexClientProvider from '@/components/convex-client-provider'
 
 const pressStart2P = Press_Start_2P({
   weight: '400',
@@ -54,7 +55,9 @@ export default function RootLayout({
       </head>
       <body className={`${pressStart2P.variable} font-sans antialiased`}>
         <Providers>
-          {children}
+          <ConvexClientProvider>
+            {children}
+          </ConvexClientProvider>
         </Providers>
         <Analytics />
       </body>

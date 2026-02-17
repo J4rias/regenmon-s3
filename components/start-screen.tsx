@@ -18,11 +18,12 @@ export function StartScreen({ onStart, isDark, toggleTheme, locale, toggleLang }
     const { isPlaying, toggleMusic } = useMusic()
     const { login, authenticated, ready, logout } = usePrivy()
 
-    useEffect(() => {
-        if (ready && authenticated) {
-            onStart()
-        }
-    }, [ready, authenticated, onStart])
+    // Auto-start causing loops, removed for stability
+    // useEffect(() => {
+    //     if (ready && authenticated) {
+    //         onStart()
+    //     }
+    // }, [ready, authenticated, onStart])
 
     // Common button class for uniform size and centering
     // flex-col, items-center, justify-center ensures content is centered both horizontally and vertically
@@ -82,8 +83,18 @@ export function StartScreen({ onStart, isDark, toggleTheme, locale, toggleLang }
                 </div>
 
                 {/* Continue / Login Button */}
+                {/* Continue / Login Button */}
                 <button
-                    onClick={authenticated ? onStart : login}
+                    onClick={() => {
+                        console.log('Start Button Clicked:', { authenticated, ready });
+                        if (authenticated) {
+                            console.log('Calling onStart');
+                            onStart();
+                        } else {
+                            console.log('Calling login');
+                            login();
+                        }
+                    }}
                     disabled={!ready}
                     className={`nes-btn mt-8 px-16 py-6 text-2xl tracking-wider animate-bounce w-full max-w-md shadow-lg flex items-center justify-center ${!ready ? 'is-disabled' : 'is-primary'}`}
                 >

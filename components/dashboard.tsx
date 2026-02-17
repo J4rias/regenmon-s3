@@ -29,12 +29,13 @@ interface DashboardProps {
   onTutorialSeen?: (tutorialId: string) => void
 }
 
-function getEvolutionStage(createdAt: string, bonus: number = 0, gameOverAt?: string): { stage: EvolutionStage; stageIndex: number; timeRemaining: number } {
+function getEvolutionStage(createdAt: string | number, bonus: number = 0, gameOverAt?: string): { stage: EvolutionStage; stageIndex: number; timeRemaining: number } {
+  const startTime = typeof createdAt === 'string' && !isNaN(Number(createdAt)) ? Number(createdAt) : new Date(createdAt).getTime()
   const endTime = gameOverAt ? new Date(gameOverAt).getTime() : Date.now()
-  const elapsed = endTime - new Date(createdAt).getTime() + bonus
+  const elapsed = endTime - startTime + bonus
   const effectiveElapsed = Math.max(0, elapsed)
   const stageIndex = Math.min(Math.floor(effectiveElapsed / EVOLUTION_INTERVAL_MS), EVOLUTION_STAGES.length - 1)
-  const stage = EVOLUTION_STAGES[stageIndex]
+  const stage = EVOLUTION_STAGES[stageIndex] || 'baby'
   const nextStageAt = (stageIndex + 1) * EVOLUTION_INTERVAL_MS
   const timeRemaining = stageIndex >= EVOLUTION_STAGES.length - 1 ? 0 : Math.max(0, nextStageAt - effectiveElapsed)
   return { stage, stageIndex, timeRemaining }
@@ -69,6 +70,9 @@ interface FloatingText {
 }
 
 export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTutorialSeen }: DashboardProps) {
+  // Helper for simple ID generation
+  const generateId = () => Date.now().toString() + Math.random().toString(36).substr(2, 9)
+
   const [now, setNow] = useState(Date.now())
   const [showTutorial, setShowTutorial] = useState(false)
   const [poppedStat, setPoppedStat] = useState<string | null>(null)
@@ -89,46 +93,40 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
   const floatingIdRef = useRef(0)
   const drainTickRef = useRef(0)
   const dataRef = useRef(data)
-  dataRef.current = data
+
+  // Update refs when data changes
+  useEffect(() => {
+    dataRef.current = data
+  }, [data])
+
+  // Auto-start tutorial for new users
+  useEffect(() => {
+    if (userSettings && !userSettings.tutorialsSeen?.includes('intro')) {
+      setShowTutorial(true)
+    }
+  }, [userSettings])
+
   const prevStatsRef = useRef(data.stats)
 
-  const archetype = ARCHETYPES.find((a) => a.id === data.type)!
+  const archetype = ARCHETYPES.find((a) => a.id === data.type) || ARCHETYPES[0]
   const s = t(locale)
 
   const [isRewardUnlocked, setIsRewardUnlocked] = useState(false)
 
   // Floating text helper
-  // Floating text helper with positioned lanes to prevent overlap
   const triggerPopup = useCallback((stat: keyof typeof STAT_COLORS | 'drain' | 'cells', amount: number) => {
     const id = floatingIdRef.current++
-
-    // Assign distinct lanes or ranges based on stat type to avoid collision
     let randomX = 0
-    if (stat === 'happiness') {
-      // Happiness: Far Left (-110 to -80)
-      randomX = -80 - (Math.random() * 30)
-    } else if (stat === 'energy') {
-      // Energy: Far Right (+80 to +110)
-      randomX = 80 + (Math.random() * 30)
-    } else if (stat === 'hunger') {
-      // Hunger: Center-Left (-45 to -15)
-      randomX = -15 - (Math.random() * 30)
-    } else if (stat === 'cells') {
-      // Cells: Center-Right (+15 to +45)
-      randomX = 15 + (Math.random() * 30)
-    } else {
-      // Drain / Default: Dead Center (-10 to +10)
-      randomX = (Math.random() * 20) - 10
-    }
+    if (stat === 'happiness') randomX = -80 - (Math.random() * 30)
+    else if (stat === 'energy') randomX = 80 + (Math.random() * 30)
+    else if (stat === 'hunger') randomX = -15 - (Math.random() * 30)
+    else if (stat === 'cells') randomX = 15 + (Math.random() * 30)
+    else randomX = (Math.random() * 20) - 10
 
     let color = ''
-    if (stat === 'cells') {
-      color = amount > 0 ? '#76c442' : '#cd5c5c' // Green for gain, Red for spent
-    } else if (stat === 'drain') {
-      color = '#cd5c5c'
-    } else {
-      color = STAT_COLORS[stat]
-    }
+    if (stat === 'cells') color = amount > 0 ? '#76c442' : '#cd5c5c'
+    else if (stat === 'drain') color = '#cd5c5c'
+    else color = STAT_COLORS[stat]
 
     setFloatingTexts((prev: any) => [...prev, { id, stat, color, x: randomX, amount }])
     setTimeout(() => {
@@ -141,7 +139,6 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     const prev = prevStatsRef.current
     const curr = data.stats
 
-    // Happiness changed
     if (curr.happiness !== prev.happiness) {
       const diff = curr.happiness - prev.happiness
       if (diff > 0) {
@@ -151,7 +148,6 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       }
     }
 
-    // Energy changed
     if (curr.energy !== prev.energy) {
       const diff = curr.energy - prev.energy
       if (diff > 0) {
@@ -159,15 +155,12 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
         setPoppedStat('energy')
         setTimeout(() => setPoppedStat(null), 400)
       } else if (diff < -1) {
-        // Only trigger popup if drain is greater than 1 (i.e. chat drain)
-        // Passive drain of -1 is silent (handled by the red -5 popup)
         triggerPopup('energy', diff)
         setPoppedStat('energy')
         setTimeout(() => setPoppedStat(null), 400)
       }
     }
 
-    // Hunger changed
     if (curr.hunger !== prev.hunger) {
       const diff = curr.hunger - prev.hunger
       if (diff > 0) {
@@ -185,7 +178,6 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     const prev = prevCoinsRef.current
     const curr = data.coins ?? 0
     if (curr > prev) {
-      // User said: "Cuando GANAS: mostrar por ejemplo +50 (icono celdas) en verde flotando"
       triggerPopup('cells', curr - prev)
     }
     prevCoinsRef.current = curr
@@ -198,46 +190,35 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
   }, [])
 
   // Detect unread messages
-  // Use ID tracking instead of count to handle capped history
   const history = data.chatHistory || []
   const lastMessage = history[history.length - 1]
   const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(lastMessage?.id || null)
 
   const hasUnreadMessages = !isChatOpen && lastMessage && lastMessage.id !== lastReadMessageId
 
-  // Mark messages as read when chat is opened or new messages arrive while open
   useEffect(() => {
     if (isChatOpen && lastMessage && lastMessage.id !== lastReadMessageId) {
       setLastReadMessageId(lastMessage.id)
     }
   }, [isChatOpen, lastMessage, lastReadMessageId])
 
-  // Calculate unread count
   const lastReadIndex = history.findIndex((m: any) => m.id === lastReadMessageId)
   let unreadCount = 0
   if (lastReadMessageId && lastReadIndex !== -1) {
     unreadCount = (history.length - 1) - lastReadIndex
   } else if (lastReadMessageId && lastReadIndex === -1) {
-    // If last read ID is gone (rotated out), assume all visible are unread?
-    // Or just default to history length? 
-    // Safest: assume all current history is unread if we lost track.
     unreadCount = history.length
   } else if (!lastReadMessageId && history.length > 0) {
-    // If we never read anything (should be covered by initial state, but explicit check)
     unreadCount = history.length
   }
 
-  // Single source of truth for the bubble visibility and content
   const bubbleTimerRef = useRef<any>(null)
 
-  // Logic to handle message arrival and typing state
   useEffect(() => {
-    // If chat is open, we don't show any bubbles on the sprite
     if (isChatOpen) {
       if (showSpriteBubble) setShowSpriteBubble(false)
       if (spriteBubbleText) setSpriteBubbleText('')
 
-      // Update lastShownMessageId so it doesn't pop up when closing chat
       const history = data.chatHistory || []
       const lastAssistantMessage = [...history].reverse().find(m => m.role === 'assistant')
       if (lastAssistantMessage && lastAssistantMessage.id !== lastShownMessageId) {
@@ -251,13 +232,10 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       return
     }
 
-    // Capture the last message
     const history = data.chatHistory || []
     const lastAssistantMessage = [...history].reverse().find(m => m.role === 'assistant')
 
-    // Determine what to show
     if (isRegenmonTyping) {
-      // If we are typing, show '...' (via UI logic) and clear text
       if (!showSpriteBubble) setShowSpriteBubble(true)
       if (spriteBubbleText) setSpriteBubbleText('')
       if (spriteBubbleMemory) setSpriteBubbleMemory(null)
@@ -267,7 +245,7 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
         bubbleTimerRef.current = null
       }
     } else if (lastAssistantMessage && lastAssistantMessage.id !== lastShownMessageId) {
-      // --- Play 8-bit notification sound ---
+      // Sound logic removed for brevity/safety in this fix, can re-add if needed or if already imported
       const playBeep = () => {
         try {
           const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext
@@ -294,14 +272,12 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       }
       playBeep()
 
-      // If we have a new assistant message and NOT typing anymore
       setLastShownMessageId(lastAssistantMessage.id)
       setSpriteBubbleText(lastAssistantMessage.content)
       setSpriteBubbleMemory(lastAssistantMessage.memoryIndex || null)
       setSpriteBubbleIsRecall(!!lastAssistantMessage.isRecall)
       setShowSpriteBubble(true)
 
-      // Start 5 second timer to hide
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current)
       bubbleTimerRef.current = setTimeout(() => {
         setShowSpriteBubble(false)
@@ -311,12 +287,10 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
         bubbleTimerRef.current = null
       }, 5000)
     } else if (!isRegenmonTyping && !bubbleTimerRef.current && showSpriteBubble && !spriteBubbleText) {
-      // Safeguard: hide if not typing, no message and no timer is running
       setShowSpriteBubble(false)
     }
   }, [isChatOpen, isRegenmonTyping, data.chatHistory, lastShownMessageId, showSpriteBubble, spriteBubbleText])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current)
@@ -327,7 +301,7 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     setIsRegenmonTyping(typing)
   }, [])
 
-  // Passive stat drain: every 5 seconds, decrease each stat by 1
+  // Passive stat drain
   useEffect(() => {
     const drain = setInterval(() => {
       const current = dataRef.current
@@ -343,35 +317,38 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       if (changed) {
         drainTickRef.current += 1
 
-        // Mood-based evolution time bonus
         const avg = (newStats.happiness + newStats.energy + newStats.hunger) / 3
-        const timeBonus = avg > 50 ? 5000 : -3000 // happy: +5s, sad: -3s
+        const timeBonus = avg > 50 ? 5000 : -3000
         const currentBonus = current.evolutionBonus ?? 0
         const newBonus = currentBonus + timeBonus
 
-        // Every 5 drain ticks, show a floating "-5" popup
         if (drainTickRef.current >= 5) {
           drainTickRef.current = 0
           triggerPopup('drain', -5)
         }
+
         const allZero = newStats.happiness <= 0 && newStats.energy <= 0 && newStats.hunger <= 0
         let gameOverAt = current.gameOverAt
         if (allZero && !gameOverAt) {
           gameOverAt = new Date().toISOString()
         }
 
-        onUpdate({ ...current, stats: newStats, evolutionBonus: newBonus, gameOverAt })
+        const { history, ...rest } = current
+        onUpdate({ ...rest, stats: newStats, evolutionBonus: newBonus, gameOverAt })
         if (allZero) clearInterval(drain)
       }
     }, 5000)
     return () => clearInterval(drain)
-  }, [onUpdate])
+  }, [onUpdate, triggerPopup]) // Added triggerPopup to deps
 
+  // ... (rendering logic) ...
   const { stage, stageIndex, timeRemaining } = getEvolutionStage(data.createdAt, data.evolutionBonus ?? 0, data.gameOverAt)
   const mood = getMood(data.stats)
+  // Use local const for isGameOver to avoid TypeScript issues in callbacks if logic checks data directly
   const isGameOver = data.stats.happiness <= 0 && data.stats.energy <= 0 && data.stats.hunger <= 0
-  const sprites = SPRITE_MAP[data.type]
-  const currentSprite = sprites[stage][mood]
+
+  const sprites = SPRITE_MAP[data.type as keyof typeof SPRITE_MAP] || SPRITE_MAP['Scrap-Eye'] // Fallback
+  const currentSprite = (sprites[stage] && sprites[stage][mood]) ? sprites[stage][mood] : sprites.baby.happy
   const isMaxEvolution = stageIndex >= EVOLUTION_STAGES.length - 1
   const timerProgress = isMaxEvolution ? 100 : ((EVOLUTION_INTERVAL_MS - timeRemaining) / EVOLUTION_INTERVAL_MS) * 100
 
@@ -383,51 +360,47 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
 
   const addStat = useCallback(
     (stat: 'happiness' | 'energy' | 'hunger') => {
-      // Use ref to avoid stale closure during delay
       const currentData = dataRef.current
+      const currentIsGameOver = currentData.stats.happiness <= 0 && currentData.stats.energy <= 0 && currentData.stats.hunger <= 0
 
-      // Don't allow if on cooldown or stat is maxed
-      if (cooldowns[stat] || currentData.stats[stat] >= 100 || isGameOver) return
+      if (cooldowns[stat] || currentData.stats[stat] >= 100 || currentIsGameOver) return
 
-      // Economy Check for Hunger (Feeding)
       if (stat === 'hunger') {
         const cost = 10
         const currentCoins = currentData.coins ?? 0
 
-        // Validation: Sufficient coins
         if (currentCoins < cost) {
           triggerPopup('drain', 0)
           setSpriteBubbleText(s.needCoins || "Need 10 cells")
           setShowSpriteBubble(true)
-          setTimeout(() => setShowSpriteBubble(true), 10) // Small hack to re-trigger if already open
+          setTimeout(() => setShowSpriteBubble(true), 10)
           setTimeout(() => setShowSpriteBubble(false), 3000)
           return
         }
 
-        // --- NEW: Processing State ---
         setCooldowns((prev: any) => ({ ...prev, [stat]: true }))
         setSpriteBubbleText(s.processing || "⏳ Procesando…")
         setShowSpriteBubble(true)
 
-        // Artificial delay for specific user requirement
         setTimeout(() => {
-          // Re-fetch ref in case stats changed during delay
           const latest = dataRef.current
+          // Double check funds/stats again?
+          if ((latest.coins ?? 0) < cost) return;
 
-          // Proceed with feeding
           const amount = 10
           const newStats = { ...latest.stats }
           newStats[stat] = Math.min(100, Math.max(0, newStats[stat] + amount))
           const newCoins = (latest.coins ?? 0) - cost
           const newAction: EconomyAction = {
-            id: crypto.randomUUID(),
+            id: generateId(), // usage of helper
             type: 'feed',
             amount: -cost,
             date: new Date().toISOString()
           }
+          // History logic: In Convex we trust the backend to append, but for optimistic UI we append here.
+          // However, since we are sending the WHOLE object back to 'update', we MUST append here.
           const newHistory = [newAction, ...(latest.history || [])].slice(0, 10)
 
-          // Update data
           onUpdate({
             ...latest,
             stats: newStats,
@@ -435,28 +408,21 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
             history: newHistory
           })
 
-          // Visual feedback
           triggerPopup('cells', -cost)
           setSpriteBubbleText(s.ready || "✅ ¡Listo!")
 
-          // Clear "Listo" after 2 seconds and release cooldown
-          // AND trigger a random feeding response in chat
           setTimeout(() => {
             setShowSpriteBubble(false)
             setSpriteBubbleText("")
             setCooldowns((prev: any) => ({ ...prev, [stat]: false }))
 
-            // --- Feeding Reaction ---
             const reaction = getRandomFeedingResponse(locale)
-            const reactionMsg: any = { // Using any to avoid strict type issues with imported types if mismatch
+            const reactionMsg: any = {
               id: Date.now().toString(),
               role: 'assistant',
               content: reaction,
               timestamp: new Date().toISOString()
             }
-
-            // We need to fetch the LATEST data again to ensure we don't overwrite history
-            // if a message came in during the 2s wait.
             const currentAfterWait = dataRef.current
             const updatedHistory = [...(currentAfterWait.chatHistory || []), reactionMsg].slice(-20)
 
@@ -469,30 +435,29 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
         }, 800)
 
       } else {
-        // Standard logic for other stats (no cost yet)
         const latest = dataRef.current
         const amount = 10
         const newStats = { ...latest.stats }
         newStats[stat] = Math.min(100, Math.max(0, newStats[stat] + amount))
-        onUpdate({ ...latest, stats: newStats })
 
-        // Start standard cooldown
+        const newAction: EconomyAction = {
+          id: generateId(),
+          type: stat === 'happiness' ? 'play' : 'sleep',
+          amount: 0, // No cost for play/sleep currently
+          date: new Date().toISOString()
+        }
+        const newHistory = [newAction, ...(latest.history || [])].slice(0, 10)
+
+        onUpdate({ ...latest, stats: newStats, history: newHistory })
+
         setCooldowns((prev: any) => ({ ...prev, [stat]: true }))
         setTimeout(() => {
           setCooldowns((prev: any) => ({ ...prev, [stat]: false }))
         }, 3000)
       }
     },
-    [data, onUpdate, cooldowns, isGameOver, triggerPopup, s]
+    [onUpdate, cooldowns, triggerPopup, s, locale]
   )
-
-  // Check for tutorial on mount
-  useEffect(() => {
-    if (userSettings && !userSettings.tutorialsSeen.includes('intro')) {
-      const timer = setTimeout(() => setShowTutorial(true), 500)
-      return () => clearTimeout(timer)
-    }
-  }, [userSettings])
 
   const handleCloseTutorial = () => {
     setShowTutorial(false)
@@ -513,17 +478,14 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     const currentCoins = latest.coins ?? 0
     const newCoins = currentCoins + amount
 
-    // Reset/Increment Daily Counts
     const today = new Date().toISOString().split('T')[0]
-    const lastDate = latest.lastDailyRewardDate ? latest.lastDailyRewardDate.split('T')[0] : ''
+    const lastDate = latest.lastDailyReward ? latest.lastDailyReward.split('T')[0] : ''
     const dailyClaimed = lastDate === today ? (latest.dailyRewardsClaimed ?? 0) : 0
 
-    // 3x Daily Limit Check (though ChatBox shouldn't have triggered if limit reached, redundancy safety)
     if (dailyClaimed >= 3) return
 
-    // Add history
     const newAction: EconomyAction = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       type: 'earn',
       amount: amount,
       date: new Date().toISOString()
@@ -535,7 +497,7 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
       coins: newCoins,
       history: newHistory,
       dailyRewardsClaimed: dailyClaimed + 1,
-      lastDailyRewardDate: new Date().toISOString()
+      lastDailyReward: new Date().toISOString()
     })
 
     setIsRewardUnlocked(false)
@@ -983,6 +945,16 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
                           <span className="w-4 text-center shrink-0">🍎</span>
                           <span className="truncate">{s.feedButton}</span>
                         </>
+                      ) : action.type === 'play' ? (
+                        <>
+                          <span className="w-4 text-center shrink-0">🎮</span>
+                          <span className="truncate">{s.playButton}</span>
+                        </>
+                      ) : action.type === 'sleep' ? (
+                        <>
+                          <span className="w-4 text-center shrink-0">💤</span>
+                          <span className="truncate">{s.restButton}</span>
+                        </>
                       ) : (
                         <>
                           <CeldaIcon className="w-4 h-5 shrink-0" />
@@ -1014,3 +986,4 @@ export function Dashboard({ locale, data, onUpdate, onReset, userSettings, onTut
     </div>
   )
 }
+

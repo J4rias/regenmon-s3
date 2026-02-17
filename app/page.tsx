@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Incubator } from '@/components/incubator'
 import { Dashboard } from '@/components/dashboard'
 import { TopBar } from '@/components/top-bar'
@@ -11,104 +11,71 @@ import type { RegenmonData } from '@/lib/regenmon-types'
 import { ARCHETYPES } from '@/lib/regenmon-types'
 import { useLanguage } from '@/components/language-provider'
 import { usePrivy } from '@privy-io/react-auth'
+import { useConvex, useConvexAuth, useMutation, useQuery } from 'convex/react'
+import { api } from "@/convex/_generated/api";
 
 import { UserNamePopup } from '@/components/username-popup'
 
-const STORAGE_KEY = 'regenmon-data'
-const USER_SETTINGS_KEY = 'regenmon-user-settings'
 const THEME_KEY = 'regenmon-theme'
 
-interface UserSettings {
-  playerName: string
-  tutorialsSeen: string[]
-}
-
 function GameContent() {
-  const [regenmon, setRegenmon] = useState<RegenmonData | null>(null)
+  // Remote Data
+  const regenmon = useQuery(api.regenmon.get);
+  const userProfile = useQuery(api.users.get);
+
+  // Mutations
+  const storeUser = useMutation(api.users.store);
+  const markTutorialSeen = useMutation(api.users.markTutorialSeen);
+  const hatch = useMutation(api.regenmon.hatch);
+  const resetGame = useMutation(api.regenmon.reset);
+  const updateRegenmon = useMutation(api.regenmon.update);
+
   const [isDark, setIsDark] = useState(true)
-  // Use global language state
   const { locale, toggleLang } = useLanguage()
-  const { authenticated, user } = usePrivy()
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
+  const { authenticated: isPrivyAuthenticated, ready: isPrivyReady, getAccessToken } = usePrivy()
   const [mounted, setMounted] = useState(false)
+  // Sync Auth with Convex User Table
+  const userStoredRef = useRef(false);
 
-  // Dynamic storage key based on user ID
-  const storageKey = user?.id ? `regenmon-data-${user.id}` : STORAGE_KEY
-  const settingsKey = user?.id ? `${USER_SETTINGS_KEY}-${user.id}` : USER_SETTINGS_KEY
-
-  const lastStorageKeyRef = useRef(storageKey)
-  const lastSettingsKeyRef = useRef(settingsKey)
-
-  // Update refs when keys change
   useEffect(() => {
-    if (user?.id) {
-      lastStorageKeyRef.current = storageKey
-      lastSettingsKeyRef.current = settingsKey
+    if (!isAuthenticated) {
+      userStoredRef.current = false;
     }
-  }, [storageKey, settingsKey, user?.id])
+  }, [isAuthenticated]);
 
-  const [userSettings, setUserSettings] = useState<UserSettings>({ playerName: '', tutorialsSeen: [] })
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated && !userStoredRef.current) {
+      // Ensure user exists in our DB
+      storeUser({});
+      userStoredRef.current = true;
+    }
+  }, [isAuthLoading, isAuthenticated, storeUser]);
+
   const [hasSkippedName, setHasSkippedName] = useState(false)
-
-  // New States for Flow
   const [gameState, setGameState] = useState<'START' | 'LOADING' | 'GAME'>('START')
-
-  // Load data when mounted or user changes
-  useEffect(() => {
-    if (!mounted) return
-
-    const key = user?.id ? `regenmon-data-${user.id}` : STORAGE_KEY
-    const saved = localStorage.getItem(key)
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Migration: Add coins if missing
-        if (typeof parsed.coins === 'undefined') {
-          parsed.coins = 100
-          parsed.history = []
-        }
-        setRegenmon(parsed)
-      } catch {
-        localStorage.removeItem(key)
-        setRegenmon(null)
-      }
-    } else {
-      setRegenmon(null)
-    }
-
-    // Load User Settings
-    const savedSettings = localStorage.getItem(settingsKey)
-    if (savedSettings) {
-      try {
-        setUserSettings(JSON.parse(savedSettings))
-      } catch {
-        // ignore
-      }
-    }
-
-    const savedTheme = localStorage.getItem(THEME_KEY)
-    if (savedTheme === 'light') {
-      setIsDark(false)
-    } else {
-      setIsDark(true)
-    }
-  }, [mounted, user?.id, settingsKey])
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+
+
+
+  // Handle auth state changes
   useEffect(() => {
-    if (mounted && !authenticated && gameState !== 'START') {
+    // Only reset if Privy is ready and explicitly says we are NOT authenticated.
+    if (mounted && isPrivyReady && !isPrivyAuthenticated && gameState !== 'START') {
       setGameState('START')
-      // Clear storage on logout as requested
-      // Use the last known keys from refs since user object is now null
-      localStorage.removeItem(lastStorageKeyRef.current)
-      localStorage.removeItem(lastSettingsKeyRef.current)
-      setRegenmon(null)
-      setUserSettings({ playerName: '', tutorialsSeen: [] })
     }
-  }, [mounted, authenticated, gameState])
+  }, [mounted, isPrivyAuthenticated, isPrivyReady, gameState])
+
+  // Auto-start if authenticated
+  useEffect(() => {
+    if (mounted && isPrivyAuthenticated && gameState === 'START') {
+      setGameState('LOADING')
+    }
+  }, [mounted, isPrivyAuthenticated, gameState])
 
   useEffect(() => {
     if (!mounted) return
@@ -121,43 +88,50 @@ function GameContent() {
     localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light')
   }, [isDark, mounted])
 
-  // Language side effect is handled by LanguageProvider
 
   function handleHatch(data: RegenmonData) {
-    localStorage.setItem(storageKey, JSON.stringify(data))
-    setRegenmon(data)
+    // We pass only the necessary args to the mutation
+    hatch({ name: data.name, type: data.type });
   }
 
-  function handleUpdate(data: RegenmonData) {
-    localStorage.setItem(storageKey, JSON.stringify(data))
-    setRegenmon(data)
-  }
-
-  function handleReset() {
-    localStorage.removeItem(storageKey)
-    setRegenmon(null)
-    // Also reset intro tutorial status so it shows again for the next Regenmon
-    const newSettings = {
-      ...userSettings,
-      tutorialsSeen: userSettings.tutorialsSeen.filter(t => t !== 'intro')
+  // handleUpdate is no longer needed as Dashboard updates directly via mutations
+  const handleUpdate = (data: RegenmonData) => {
+    // This function is still called by Dashboard, so we need to map it to the Convex mutation
+    if (regenmon && regenmon._id) {
+      updateRegenmon({
+        regenmonId: regenmon._id,
+        name: data.name,
+        type: data.type,
+        stats: data.stats,
+        coins: data.coins,
+        evolutionBonus: data.evolutionBonus,
+        gameOverAt: data.gameOverAt,
+        isGameOver: data.isGameOver,
+        chatHistory: data.chatHistory,
+        history: data.history,
+      });
     }
-    setUserSettings(newSettings)
-    localStorage.setItem(settingsKey, JSON.stringify(newSettings))
+  }
+
+  async function handleReset() {
+    if (regenmon) {
+      await resetGame({ regenmonId: regenmon._id });
+      // The query will automatically update to null, 
+      // which will trigger the Incubator to show.
+    }
   }
 
   function toggleTheme() {
     setIsDark((prev) => !prev)
   }
 
-  // toggleLang is from context now
-
-  function handleStart() {
+  const handleStart = useCallback(() => {
     setGameState('LOADING')
-  }
+  }, [])
 
-  function handleLoaded() {
+  const handleLoaded = useCallback(() => {
     setGameState('GAME')
-  }
+  }, [])
 
   const currentArchetype = regenmon ? ARCHETYPES.find((a) => a.id === regenmon.type) : null
   const archetypeInfo = currentArchetype
@@ -175,9 +149,7 @@ function GameContent() {
 
 
   function handleSaveName(name: string) {
-    const newSettings = { ...userSettings, playerName: name }
-    setUserSettings(newSettings)
-    localStorage.setItem(settingsKey, JSON.stringify(newSettings))
+    storeUser({ name });
   }
 
   function handleSkipName() {
@@ -185,13 +157,8 @@ function GameContent() {
   }
 
   function handleTutorialSeen(tutorialId: string) {
-    if (userSettings.tutorialsSeen.includes(tutorialId)) return
-    const newSettings = { ...userSettings, tutorialsSeen: [...userSettings.tutorialsSeen, tutorialId] }
-    setUserSettings(newSettings)
-    localStorage.setItem(settingsKey, JSON.stringify(newSettings))
+    markTutorialSeen({ tutorialId });
   }
-
-  // ... (rest of component) ...
 
   return (
     <div className="min-h-screen font-sans">
@@ -218,24 +185,28 @@ function GameContent() {
             onToggleLang={toggleLang}
             archetypeInfo={archetypeInfo}
             onReset={regenmon ? handleReset : undefined}
-            regenmonData={regenmon}
-            playerName={userSettings.playerName}
+            regenmonData={regenmon || null}
+            playerName={userProfile?.name || ''}
           />
           <main style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {regenmon ? (
               <Dashboard
                 locale={locale}
-                data={regenmon}
+                data={regenmon as any}
                 onUpdate={handleUpdate}
                 onReset={handleReset}
-                userSettings={userSettings}
+                userSettings={{
+                  playerName: userProfile?.name || '',
+                  tutorialsSeen: userProfile?.tutorialsSeen || []
+                }}
                 onTutorialSeen={handleTutorialSeen}
               />
             ) : (
               <Incubator locale={locale} onHatch={handleHatch} />
             )}
 
-            {!userSettings.playerName && !hasSkippedName && (
+            {/* Show popup if user exists but has no name or is default 'Trainer', and hasn't skipped */}
+            {userProfile && (!userProfile.name || userProfile.name === 'Trainer') && !hasSkippedName && (
               <UserNamePopup locale={locale} onSave={handleSaveName} onSkip={handleSkipName} />
             )}
           </main>

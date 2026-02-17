@@ -23,26 +23,34 @@ export interface RegenmonStats {
 }
 
 export interface RegenmonData {
+  _id?: string
+  _creationTime?: number
   name: string
-  type: ArchetypeId
-  stats: RegenmonStats
+  type: ArchetypeId | string // Allow string for DB compatibility
+  stats: {
+    happiness: number
+    energy: number
+    hunger: number
+  }
   coins: number
-  createdAt: string
+  createdAt: string | number
   evolutionBonus?: number // accumulated time bonus/penalty in ms
   gameOverAt?: string // timestamp when game over occurred
   chatHistory?: ChatMessage[]
   memories?: string[]
   history?: EconomyAction[]
   // Advanced Economy
+  isGameOver?: boolean
   dailyRewardsClaimed?: number // Tracks 3x limit
   lastDailyRewardDate?: string // ISO date for reset
+  lastDailyReward?: string // Alias for compatibility with Convex schema
   dailyChatEarnings?: number // Tracks chat farming cap
   lastChatEarningDate?: string // ISO date to reset cap
 }
 
 export interface EconomyAction {
   id: string
-  type: 'feed' | 'earn'
+  type: 'feed' | 'play' | 'sleep' | 'earn'
   amount: number
   date: string
 }

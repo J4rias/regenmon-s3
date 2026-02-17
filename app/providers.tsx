@@ -20,11 +20,11 @@ function PrivyWrapper({ children }: { children: React.ReactNode }) {
                     logo: '/images/regenmon-logo.png',
                     landingHeader: landingHeader,
                 },
-                embeddedWallets: {
-                    ethereum: {
-                        createOnLogin: 'users-without-wallets',
-                    },
-                },
+                // embeddedWallets: {
+                //     ethereum: {
+                //         createOnLogin: 'users-without-wallets',
+                //     },
+                // },
             }}
         >
             {children}
