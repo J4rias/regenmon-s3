@@ -6,7 +6,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['pino', 'thread-stream', 'sonic-boom', 'pino-pretty'],
+  turbopack: {
+    resolveAlias: {
+      'thread-stream': './lib/noop.js',
+      'sonic-boom': './lib/noop.js',
+      'pino-pretty': './lib/noop.js',
+    },
+  },
 }
 
 export default nextConfig
